@@ -3,7 +3,7 @@
    A UI é desenhada num quadro de 1200×760 e escalada inteira pelo JS (fit) — nunca rola, nunca corta.
    Animações só com transform/opacity (compostas na GPU) e curvas no estilo das da Apple. */
 :root {
-  --base: 30 32 35;          /* fundo da janela (RGB, para aplicar transparência) */
+  --base: 30 32 35;          /* fundo da janela (RGB) */
   --spot: 42 45 49;          /* centro do holofote */
   --surf: 38 41 45;          /* painéis */
   --raise: #3A3D43;          /* segmento selecionado */
@@ -30,7 +30,6 @@
   --signal-soft: rgba(10, 132, 255, .22);
   --caution: #FFB340;
   --stage: #0A84FF;          /* cor do estágio de DPI ativo (JS) — só em pontos pequenos */
-  --opacity: 1;              /* 1 − transparência escolhida (JS) */
 
   --r-pane: 16px; --r-group: 11px; --r-ctl: 8px;
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
@@ -90,10 +89,10 @@ button, input, select { font: inherit; color: inherit; }
   position: relative;
   display: grid; grid-template-columns: 208px 1fr; gap: 14px;
   width: 1200px; height: 760px; padding: 12px; overflow: clip;
-  /* holofote de estúdio atrás do palco — estático; a transparência vem de --opacity */
+  /* holofote de estúdio atrás do palco — estático */
   background:
     radial-gradient(40% 50% at var(--spot-x, 57%) 52%, var(--glow), transparent 70%),
-    radial-gradient(90% 80% at var(--spot-x, 57%) 45%, rgb(var(--spot) / var(--opacity)) 0%, rgb(var(--base) / var(--opacity)) 70%);
+    radial-gradient(90% 80% at var(--spot-x, 57%) 45%, rgb(var(--spot)) 0%, rgb(var(--base)) 70%);
 }
 
 /* ---------- barra lateral (painel flutuante, como no macOS 26) ---------- */
@@ -187,7 +186,7 @@ button, input, select { font: inherit; color: inherit; }
 .inspector {
   align-self: start; max-height: 100%; contain: layout paint;
   display: flex; flex-direction: column; gap: 16px; min-height: 0; overflow: clip; padding: 18px;
-  border-radius: var(--r-pane); background: rgb(var(--surf) / calc(.5 + .28 * var(--opacity)));
+  border-radius: var(--r-pane); background: rgb(var(--surf) / .78);
   box-shadow: inset 0 0 0 .5px var(--hair), 0 18px 40px -24px var(--shadow);
 }
 .workspace > .inspector { view-transition-name: panel; }
@@ -258,17 +257,19 @@ body.no-device .rail, body.no-device .head { display: none; }
 .empty h2 { margin: 0; font: 600 25px/1.15 var(--font-display); letter-spacing: -.018em; }
 .empty p { margin: 6px 0 0; color: var(--pencil); font-size: 13px; }
 
-/* tela inicial: dois cartões, mouse e teclado */
+/* tela inicial: um cartão por dispositivo reconhecido */
 .home { grid-template-rows: auto 1fr; }
-.picker { display: grid; grid-template-columns: 340px 560px; justify-content: center; align-content: center; gap: 26px; padding-bottom: 40px; }
+.home.none { grid-template-rows: 1fr; align-items: center; }
+.home.none .empty { padding: 0 0 40px; }
+.picker { display: flex; justify-content: center; align-items: center; gap: 26px; padding-bottom: 40px; }
+.pick[data-open="mouse"] { width: 340px; }
+.pick[data-open="keyboard"] { width: 560px; }
 .pick { display: grid; grid-template-rows: 330px auto auto; justify-items: center; gap: 4px; padding: 22px 22px 20px; border: 0; border-radius: 22px;
-  background: rgb(var(--surf) / calc(.45 + .28 * var(--opacity))); color: var(--paper);
+  background: rgb(var(--surf) / .73); color: var(--paper);
   box-shadow: inset 0 0 0 .5px var(--hair), 0 18px 40px -24px var(--shadow);
   transition: transform .45s var(--spring), box-shadow .25s, background .2s; }
-.pick:hover:not(:disabled) { transform: translateY(-4px) scale(1.012); box-shadow: inset 0 0 0 1px var(--signal), 0 26px 50px -24px var(--shadow); }
-.pick:active:not(:disabled) { transform: scale(.985); }
-.pick:disabled { cursor: default; }
-.pick:disabled .pick-name { color: var(--pencil); }
+.pick:hover { transform: translateY(-4px) scale(1.012); box-shadow: inset 0 0 0 1px var(--signal), 0 26px 50px -24px var(--shadow); }
+.pick:active { transform: scale(.985); }
 .pick-art { position: relative; display: grid; place-items: center; width: 100%; height: 100%; container-type: size; }
 .pick-art .photo { view-transition-name: none; height: min(92cqh, 470px); }
 .pick-art .kbd { view-transition-name: none; width: min(100cqw, calc(80cqh * var(--ar) / (1 + .064 * var(--ar)))); }
@@ -295,7 +296,7 @@ body.no-device .rail, body.no-device .head { display: none; }
 
 /* ---------- DPI ---------- */
 .dpi-page { display: grid; grid-template-rows: auto 1fr; gap: 14px; height: 100%; min-height: 0; }
-.ruler { view-transition-name: ruler; padding: 34px 30px 22px; border-radius: var(--r-pane); background: rgb(var(--surf) / calc(.5 + .28 * var(--opacity))); box-shadow: inset 0 0 0 .5px var(--hair); }
+.ruler { view-transition-name: ruler; padding: 34px 30px 22px; border-radius: var(--r-pane); background: rgb(var(--surf) / .78); box-shadow: inset 0 0 0 .5px var(--hair); }
 .track { position: relative; height: 28px; touch-action: none; }
 .track .line { position: absolute; left: 0; right: 0; top: 12px; height: 3px; border-radius: 3px; background: var(--track); }
 .track .hi { position: absolute; top: 12px; right: 0; height: 3px; border-radius: 0 3px 3px 0; background: color-mix(in srgb, var(--caution) 40%, transparent); }
@@ -322,6 +323,10 @@ body.no-device .rail, body.no-device .head { display: none; }
 /* ---------- avançado ---------- */
 .adv { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; height: 100%; min-height: 0; }
 .adv .right { display: grid; grid-template-rows: auto 1fr; gap: 14px; min-height: 0; }
+.adv-mouse { grid-template-rows: minmax(0, 1fr) auto; }
+.adv-mouse > .inspector { align-self: stretch; }
+.adv-mouse .adv-models { grid-column: 1 / -1; }
+.adv-mouse .models { grid-template-columns: repeat(18, 1fr); }
 .hex { flex: 1; min-height: 0; margin: 0; padding: 12px; overflow: clip; border-radius: var(--r-group); background: var(--mono-bg); color: var(--mono-fg); font: 10.5px/1.5 var(--mono); user-select: text; }
 .log { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: clip; font: 11px/1.5 var(--mono); color: var(--pencil); user-select: text; }
 .log div { white-space: nowrap; overflow: clip; text-overflow: ellipsis; flex: none; }
@@ -372,7 +377,6 @@ body.no-device .rail, body.no-device .head { display: none; }
   box-shadow: inset 0 0 0 .5px rgba(0,0,0,.6), 0 0 0 .5px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.12); }
 .kbd-floor { position: absolute; left: 4%; right: 4%; bottom: -4.5%; height: 9%; border-radius: 50%;
   background: radial-gradient(closest-side, var(--floor), transparent); }
-.kbd.off .kbd-case { filter: grayscale(1) brightness(.8); opacity: .55; }
 .key { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   margin: 0; padding: 0; border: 0; border-radius: clamp(2px, .7cqw, 6px); color: var(--cap-text); text-align: center;
   font-size: clamp(6px, 1.25cqw, 12px); font-weight: 600; line-height: 1.1; letter-spacing: .01em; white-space: nowrap;
@@ -397,7 +401,6 @@ button.key:disabled { cursor: not-allowed; }
 .kbd-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
 .kbd.framed .kbd-plate { position: absolute; aspect-ratio: auto; border-radius: .35cqw; }
 .kbd.framed .key, .kbd.framed .key.sel { transform: none; }
-.kbd.framed.off .kbd-frame { filter: grayscale(1) brightness(.75); opacity: .55; }
 .kbd.framed .kbd-floor { bottom: -5%; }
 
 /* teclas maiores e mais juntas, como na foto */
@@ -410,8 +413,9 @@ button.key:disabled { cursor: not-allowed; }
   inset 0 -.25cqw .5cqw -.25cqw color-mix(in srgb, var(--kc) calc(45% * var(--bright)), transparent); }
 /* legendas quase brancas com um toque da cor, como a luz atravessando as teclas na foto */
 .kbd.lit .key span { color: color-mix(in srgb, var(--kc) calc(8% + 12% * var(--bright)), #fff); text-shadow: 0 0 5px color-mix(in srgb, var(--kc) calc(55% * var(--bright)), transparent); }
-.kbd.lit.fx-2 .key { animation: kb-breathe var(--speed) ease-in-out infinite; }
-.kbd.lit:not(.fx-0):not(.fx-1):not(.fx-2) .key { animation: kb-shimmer var(--speed) linear infinite; }
+.kbd-keys { position: absolute; inset: 0; }
+.kbd.lit.fx-2 .kbd-keys { animation: kb-breathe var(--speed) ease-in-out infinite; }
+.kbd.lit:not(.fx-0):not(.fx-1):not(.fx-2) .kbd-keys { animation: kb-shimmer var(--speed) linear infinite; }
 @keyframes kb-breathe { 0%, 100% { filter: brightness(.55); } 50% { filter: brightness(1.15); } }
 @keyframes kb-shimmer { 0%, 100% { filter: hue-rotate(0deg); } 50% { filter: hue-rotate(40deg) brightness(1.1); } }
 .swatch.big { width: 26px; height: 26px; }

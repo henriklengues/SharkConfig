@@ -6,7 +6,6 @@ namespace SharkConfig.UI;
 public sealed class AppSettings
 {
     public string Theme { get; set; } = "dark";      // "dark" | "light"
-    public int Transparency { get; set; }            // 0–60 (%)
     /// <summary>Desliga as animações do app (independe da opção do Windows, que costuma estar desligada).</summary>
     public bool ReduceMotion { get; set; }
 
@@ -37,7 +36,6 @@ public sealed class AppSettings
     public static AppSettings Normalize(AppSettings s)
     {
         s.Theme = s.Theme == "light" ? "light" : "dark";
-        s.Transparency = Math.Clamp(s.Transparency, 0, 60);
         return s;
     }
 }

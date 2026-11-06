@@ -134,11 +134,12 @@ public sealed partial class Bridge
 
         object? Check()
         {
+            var all = WinHid.Enumerate();
             if (_dev is not null)
             {
                 bool present = _dev.DevicePath is null ||
-                    WinHid.Enumerate(WinHid.AttackSharkVid).Any(d => string.Equals(d.Path, _dev.DevicePath, StringComparison.OrdinalIgnoreCase));
-                if (present) return Available();
+                    all.Any(d => string.Equals(d.Path, _dev.DevicePath, StringComparison.OrdinalIgnoreCase));
+                if (present) return Available(all);
                 Log("Mouse desconectado.");
                 _dev.Dispose(); _dev = null; _model = null;
                 return new { @event = "device", state = (object?)null };
@@ -146,14 +147,14 @@ public sealed partial class Bridge
             if (_kb is not null)
             {
                 bool present = _kb.DevicePath is null ||
-                    WinHid.Enumerate(WinHid.KeyboardVid).Any(d => string.Equals(d.Path, _kb.DevicePath, StringComparison.OrdinalIgnoreCase));
-                if (present) return Available();
+                    all.Any(d => string.Equals(d.Path, _kb.DevicePath, StringComparison.OrdinalIgnoreCase));
+                if (present) return Available(all);
                 Log("Teclado desconectado.");
                 _kb.Dispose(); _kb = null;
                 return new { @event = "device", state = (object?)null };
             }
             // nada aberto: só atualiza a tela inicial (o usuário escolhe em qual dispositivo entrar)
-            return Available();
+            return Available(all);
         }
     }
 
@@ -161,14 +162,15 @@ public sealed partial class Bridge
     /// O que está ligado agora, para a tela inicial. Só enumera o Windows: não abre nem fala com
     /// nenhum dispositivo. mouse: null (ausente), "cable" ou "dongle".
     /// </summary>
-    object Available()
+    object Available(List<HidInfo>? all = null)
     {
-        var m = WinHid.FindMouse(WinHid.Enumerate(WinHid.AttackSharkVid));
+        all ??= WinHid.Enumerate();
+        var m = WinHid.FindMouse(all);
         return new
         {
             @event = "available",
             mouse = m is null ? null : WinHid.IsWirelessPid(m.Value.Out.Pid) ? "dongle" : "cable",
-            keyboard = WinHid.FindKeyboard(WinHid.Enumerate(WinHid.KeyboardVid)) is not null,
+            keyboard = WinHid.FindKeyboard(all) is not null,
             open = _dev is not null ? "mouse" : _kb is not null ? "keyboard" : null,
         };
     }
@@ -279,7 +281,7 @@ public sealed partial class Bridge
     {
         var s = args.Deserialize<AppSettings>(Json) ?? new AppSettings();
         AppSettings.Normalize(s);
-        _settings.Theme = s.Theme; _settings.Transparency = s.Transparency; _settings.ReduceMotion = s.ReduceMotion;
+        _settings.Theme = s.Theme; _settings.ReduceMotion = s.ReduceMotion;
         _applyAppearance(_settings);   // moldura nativa primeiro (acompanha o crossfade), arquivo depois
         _settings.Save();
         return _settings;
