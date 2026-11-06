@@ -27,7 +27,7 @@ const selectable = (i) => { const k = kbLayout().keys[i]; return k.present && !k
 
 // ---------------- desenho do teclado ----------------
 // opts.select: teclas clicáveis; opts.values: texto pequeno em cada tecla; opts.light: prévia da iluminação
-// opts.layout: desenha sem dispositivo (tela inicial), com o layout que vem de init; opts.off: apagado
+// opts.layout: desenha sem dispositivo (tela inicial), com o layout que vem de init
 function keyboard(opts = {}) {
   const L = opts.layout ?? kbLayout();
   if (!L) return "";
@@ -51,12 +51,12 @@ function keyboard(opts = {}) {
   // nas mesmas posições (medidas na foto, ver KeyboardModels.cs); sem foto: gabinete desenhado
   if (L.frame) {
     const p = L.plate, pc = (v, t) => `${(v / t) * 100}%`;
-    return `<div class="kbd framed${lightCls}${opts.off ? " off" : ""}" style="${vars}">
+    return `<div class="kbd framed${lightCls}" style="${vars}">
       <i class="kbd-floor"></i><div class="kbd-frame"><img class="kbd-shot" src="${L.frame}" alt="" draggable="false">
-        <div class="kbd-plate" style="left:${pc(p.x, L.width)};top:${pc(p.y, L.height)};width:${pc(p.w, L.width)};height:${pc(p.h, L.height)}"></div>${keys}</div></div>`;
+        <div class="kbd-plate" style="left:${pc(p.x, L.width)};top:${pc(p.y, L.height)};width:${pc(p.w, L.width)};height:${pc(p.h, L.height)}"></div><div class="kbd-keys">${keys}</div></div></div>`;
   }
-  return `<div class="kbd${lightCls}${opts.off ? " off" : ""}" style="${vars}">
-    <i class="kbd-floor"></i><div class="kbd-case"><i class="kbd-loop"></i><div class="kbd-plate">${keys}</div><i class="kbd-lip"></i></div></div>`;
+  return `<div class="kbd${lightCls}" style="${vars}">
+    <i class="kbd-floor"></i><div class="kbd-case"><i class="kbd-loop"></i><div class="kbd-plate"><div class="kbd-keys">${keys}</div></div><i class="kbd-lip"></i></div></div>`;
 }
 
 // cor de cada tecla na prévia: cor escolhida, ou arco-íris pela posição horizontal
@@ -184,21 +184,22 @@ const KB_VIEWS = {
   },
 };
 
-// ---------------- tela inicial: escolher o mouse ou o teclado ----------------
+// ---------------- tela inicial: só os dispositivos reconhecidos neste PC ----------------
 function chooser() {
   const a = S.avail, kbL = S.opt?.keyboard?.layout;
-  const status = (on, text) => `<div class="pick-status"><i class="dot ${on ? "on" : ""}"></i>${text}</div>`;
-  const mouseText = a.mouse === "dongle" ? "Receptor 8K" : a.mouse === "cable" ? "Cabo USB" : "Não conectado";
+  const status = (text) => `<div class="pick-status"><i class="dot on"></i>${text}</div>`;
+  const cards = [];
+  if (a.mouse) cards.push(`<button class="pick" data-open="mouse" aria-label="Configurar o mouse X8 Ultra">
+        <div class="pick-art"><div class="photo"><i class="floor"></i><img class="shot" src="${photoSrc()}" alt="" draggable="false"></div></div>
+        <div class="pick-name">X8 Ultra</div>${status(a.mouse === "dongle" ? "Receptor 8K" : "Cabo USB")}</button>`);
+  if (a.keyboard) cards.push(`<button class="pick" data-open="keyboard" aria-label="Configurar o teclado X68 HE">
+        <div class="pick-art">${kbL ? keyboard({ layout: kbL, demo: true }) : ""}</div>
+        <div class="pick-name">X68 HE</div>${status("Cabo USB")}</button>`);
+  if (!cards.length) return `<div class="connect home none">
+    <div class="empty"><h2>Nenhum dispositivo encontrado</h2><p>Conecte um mouse X8 Ultra ou um teclado X68 HE.</p></div>${gearButton()}</div>`;
   return `<div class="connect home">
-    <div class="empty"><h2>Escolha o dispositivo</h2><p>${a.mouse || a.keyboard ? "Clique no que quer configurar." : "Conecte o mouse ou o teclado da Attack Shark."}</p></div>
-    <div class="picker">
-      <button class="pick" data-open="mouse" ${a.mouse ? "" : "disabled"} aria-label="Configurar o mouse X8 Ultra">
-        <div class="pick-art"><div class="photo ${a.mouse ? "" : "off"}"><i class="floor"></i><img class="shot" src="${photoSrc()}" alt="" draggable="false"></div></div>
-        <div class="pick-name">X8 Ultra</div>${status(a.mouse, mouseText)}</button>
-      <button class="pick" data-open="keyboard" ${a.keyboard ? "" : "disabled"} aria-label="Configurar o teclado X68 HE">
-        <div class="pick-art">${kbL ? keyboard({ layout: kbL, off: !a.keyboard, demo: !!a.keyboard }) : ""}</div>
-        <div class="pick-name">X68 HE</div>${status(a.keyboard, a.keyboard ? "Cabo USB" : "Não conectado")}</button>
-    </div>${gearButton()}</div>`;
+    <div class="empty"><h2>${cards.length > 1 ? "Escolha o dispositivo" : "Dispositivo encontrado"}</h2><p>${cards.length > 1 ? "Clique no que quer configurar." : "Clique para configurar."}</p></div>
+    <div class="picker">${cards.join("")}</div>${gearButton()}</div>`;
 }
 
 const LETTERS ="QWERTYUIOPASDFGHJKLZXCVBNM".split("").map((l) => "Key" + l);

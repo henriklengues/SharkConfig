@@ -29,8 +29,8 @@ reconstruídos por engenharia reversa (interoperabilidade) dos softwares oficiai
 
 Reconhece as três revisões do X68 HE pelo id que o teclado informa (2270, 2472 e 2902). Teclas com
 DKS, Mod-Tap, Toggle ou SnapTap configurados no app oficial aparecem apagadas e não são alteradas.
-A tela inicial mostra o mouse e o teclado, com o que está conectado em cada um, e você escolhe qual
-configurar; o botão Início na barra lateral volta para ela.
+Ao abrir, o app verifica o que está conectado e a tela inicial mostra só os dispositivos reconhecidos;
+você clica no que quer configurar. O botão Início na barra lateral volta para ela.
 
 As configurações ficam gravadas **na memória do próprio dispositivo**: não é preciso deixar o app aberto.
 
@@ -45,10 +45,17 @@ mandando pedidos a ele. Clique no ícone para abrir; Sair, no menu do ícone, en
 `SharkConfig.exe --tray` na chave `Run` do usuário: o app abre só na bandeja e a interface (WebView2) só é
 criada quando você abre a janela.
 
+## Baixar e usar
+
+O arquivo [`SharkConfig.zip`](SharkConfig.zip), na raiz do repositório, traz o app já compilado (Windows x64).
+Extraia em uma pasta e abra `SharkConfig.exe`. Ele precisa do
+[.NET Desktop Runtime 10](https://dotnet.microsoft.com/download/dotnet/10.0): se não estiver instalado, o
+Windows avisa e oferece o download ao abrir.
+
 ## Requisitos
 
 - Windows 10/11 com o [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (já vem no Windows 11)
-- [.NET SDK 10](https://dotnet.microsoft.com/download) para compilar
+- [.NET SDK 10](https://dotnet.microsoft.com/download) para compilar (para só usar, basta o .NET Desktop Runtime 10)
 - Mouse X8 Ultra pelo receptor 8K ou pelo cabo (VID `0x3554`), ou teclado X68 HE pelo cabo
   (VID `0x3151`, PID `0x502D`). Feche o app oficial antes de usar.
 
@@ -129,8 +136,8 @@ docs/PROTOCOL-KEYBOARD.md  protocolo do teclado documentado
 ```
 
 Os dispositivos são detectados sozinhos ao serem conectados (o app reage ao aviso do Windows, sem ficar consultando).
-A engrenagem no canto inferior esquerdo abre a aparência: tema escuro ou claro, transparência da
-janela (fundo acrílico do Windows 11), a opção de reduzir movimento e Iniciar com o Windows.
+A engrenagem no canto inferior esquerdo abre a aparência: tema escuro ou claro, a opção de reduzir
+movimento e Iniciar com o Windows.
 
 Consumo medido (Windows 11): o processo `SharkConfig.exe` usa cerca de 15 MB de RAM privada; somando
 os processos do WebView2 que desenham a interface (com a GPU ligada, para as animações e o vidro

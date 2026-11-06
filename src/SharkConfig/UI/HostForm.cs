@@ -7,13 +7,12 @@ namespace SharkConfig.UI;
 
 /// <summary>
 /// Janela nativa que hospeda a interface web (wwwroot) via WebView2.
-/// Fundo acrílico do Windows 11 atrás de uma página transparente (transparência ajustável),
-/// tema escuro/claro na barra de título e detecção automática do mouse por WM_DEVICECHANGE.
+/// Tema escuro/claro na barra de título e detecção automática dos dispositivos por WM_DEVICECHANGE.
 /// </summary>
 public sealed class HostForm : Form
 {
     static readonly Color DarkBase = Color.FromArgb(0x1E, 0x20, 0x23), LightBase = Color.FromArgb(0xF5, 0xF5, 0xF7);
-    readonly WebView2 _web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.Transparent };
+    readonly WebView2 _web = new() { Dock = DockStyle.Fill };
     readonly System.Windows.Forms.Timer _deviceDebounce = new() { Interval = 500 };
     readonly string _query;
     readonly AppSettings _settings = AppSettings.Load();
@@ -52,7 +51,6 @@ public sealed class HostForm : Form
         using (var ico = typeof(HostForm).Assembly.GetManifestResourceStream("SharkConfig.app.ico"))
             _appIcon = ico is not null ? new Icon(ico) : SystemIcons.Application;
         Icon = _appIcon;   // multi-tamanho: o Windows escolhe 16/20/24 (título) e 32/40/48 (barra)
-        BackColor = Color.Black;            // preto = área por onde o fundo acrílico aparece
         MinimumSize = new Size(900, 600);   // abaixo disso a UI escalaria demais
         Size = new Size(1280, 800);
         StartPosition = FormStartPosition.CenterScreen;
@@ -165,37 +163,27 @@ public sealed class HostForm : Form
         base.OnHandleCreated(e);
         int round = 2;
         DwmSetWindowAttribute(Handle, 33, ref round, 4);    // DWMWA_WINDOW_CORNER_PREFERENCE = arredondado
-        var m = new MARGINS { L = -1, R = -1, T = -1, B = -1 };
-        DwmExtendFrameIntoClientArea(Handle, ref m);        // o fundo do sistema cobre toda a janela
         ApplyAppearance(_settings);
     }
 
-    /// <summary>Tema e transparência na moldura nativa (barra de título, borda e fundo acrílico).</summary>
+    /// <summary>Tema na moldura nativa (barra de título e borda) e no fundo atrás da página.</summary>
     public void ApplyAppearance(AppSettings s)
     {
         if (!IsHandleCreated) return;
         bool dark = s.Theme != "light";
         var baseColor = dark ? DarkBase : LightBase;
         int darkMode = dark ? 1 : 0;
-        int backdrop = s.Transparency > 0 ? 3 : 1;          // DWMSBT_TRANSIENTWINDOW (acrílico) | DWMSBT_NONE
-        // Barra de título sempre sólida, na cor que o corpo tem: o corpo é a cor do tema (alfa 1−t) sobre
-        // o acrílico. Com a barra em acrílico puro ela ficava bem mais clara/escura que o corpo (escuro
-        // 60%: 74 × 52). O acrílico varia com o que está atrás (medido de fundo preto a branco: escuro
-        // 54–146, claro 135–227); usamos o meio da faixa, o que deixa a diferença máxima em ~28 a 60%.
-        double t = s.Transparency / 100.0;
-        var acrylicMid = dark ? Color.FromArgb(100, 100, 100) : Color.FromArgb(181, 181, 181);
-        int caption = ToBgr(Mix(baseColor, acrylicMid, t));
+        BackColor = baseColor;
+        _web.DefaultBackgroundColor = baseColor;            // sem clarão antes de a página desenhar
+        int caption = ToBgr(baseColor);
         int text = ToBgr(dark ? Color.FromArgb(0xF2, 0xF2, 0xF0) : Color.FromArgb(0x1D, 0x1D, 0x1F));
         DwmSetWindowAttribute(Handle, 20, ref darkMode, 4); // DWMWA_USE_IMMERSIVE_DARK_MODE
-        DwmSetWindowAttribute(Handle, 38, ref backdrop, 4); // DWMWA_SYSTEMBACKDROP_TYPE
         DwmSetWindowAttribute(Handle, 35, ref caption, 4);  // DWMWA_CAPTION_COLOR
         DwmSetWindowAttribute(Handle, 34, ref caption, 4);  // DWMWA_BORDER_COLOR
         DwmSetWindowAttribute(Handle, 36, ref text, 4);     // DWMWA_TEXT_COLOR
     }
 
     static int ToBgr(Color c) => c.B << 16 | c.G << 8 | c.R;
-    static Color Mix(Color a, Color b, double t) => Color.FromArgb(
-        (int)Math.Round(a.R + (b.R - a.R) * t), (int)Math.Round(a.G + (b.G - a.G) * t), (int)Math.Round(a.B + (b.B - a.B) * t));
 
     protected override void WndProc(ref Message m)
     {
@@ -286,6 +274,7 @@ public sealed class HostForm : Form
         _suspended = false;
         _web.Visible = true;   // retomar é automático ao ficar visível
         core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+        _ = _bridge.OnDevicesChangedAsync();   // verifica de novo ao reabrir: algo pode ter mudado enquanto estava escondido
     }
 
     static void EmptyWorkingSet(int pid)
@@ -294,8 +283,6 @@ public sealed class HostForm : Form
         SetProcessWorkingSetSize(p.Handle, -1, -1);
     }
 
-    [StructLayout(LayoutKind.Sequential)] struct MARGINS { public int L, R, T, B; }
-    [DllImport("dwmapi.dll")] static extern int DwmExtendFrameIntoClientArea(IntPtr h, ref MARGINS m);
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr h, int attr, ref int value, int size);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int RegisterWindowMessage(string name);
     [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);

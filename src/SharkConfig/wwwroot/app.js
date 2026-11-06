@@ -172,8 +172,8 @@ function renderRail() {
     b.disabled = !S.cfg && key !== "overview" && key !== "advanced";
   });
   // Início: fecha o dispositivo e volta à tela de escolha (mouse ou teclado)
-  setHTML($("#rail-foot"), `${d ? `<button class="btn block plain" id="go-home">Início</button>` : ""}
-    ${d ? `<button class="btn block" id="reread">Ler o ${devNoun()} de novo</button>` : ""}
+  setHTML($("#rail-foot"), `${d ? `<button class="btn block" id="go-home">Início</button>` : ""}
+    ${d ? `<button class="btn block" id="reread">Reiniciar</button>` : ""}
     <div class="foot-row"><small>${d?.firmware ? `Firmware ${d.firmware}` : `SharkConfig ${S.opt?.version ?? ""}`}</small>${gearButton()}</div>`);
   $("#apply").textContent = `Aplicar no ${devNoun()}`;
   $("#sheet-title").textContent = `Aplicar no ${devNoun()}`;
@@ -338,14 +338,13 @@ const VIEWS = {
     const warn = S.warnings.length ? `<p class="note warn">${S.warnings.map(esc).join("<br>")}</p>` : "";
     const models = Array.from({ length: 18 }, (_, i) =>
       `<button class="model" data-model="${i}" aria-pressed="${i === S.model}" aria-label="Foto ${i + 1}"><img src="img/mouse${i}.png" alt="" loading="lazy" decoding="async"></button>`).join("");
-    return `<div class="adv">
+    return `<div class="adv adv-mouse">
       <div class="inspector"><h2>Memória do mouse</h2><p class="sub">A configuração fica gravada no próprio mouse. Os backups vão para a pasta do app.</p>
         <div class="acts-row"><button class="btn" id="export" ${S.cfg ? "" : "disabled"}>Exportar backup</button><button class="btn" id="import" ${S.cfg ? "" : "disabled"}>Carregar backup</button></div>
         ${warn}<pre class="hex">${S.hex ? esc(S.hex) : "Leia um mouse para ver a memória."}</pre></div>
-      <div class="right">
-        <div class="inspector"><h2>Aparência</h2><p class="sub">${S.device?.model != null ? "Detectada pelo modelo do mouse. Pode trocar se quiser." : "Escolha a foto que corresponde ao seu mouse."}</p><div class="models">${models}</div></div>
-        <div class="inspector"><h2>Registro</h2><div class="log" id="log">${S.logs.slice(-60).map(logLine).join("") || "<div>Sem atividade ainda.</div>"}</div></div>
-      </div></div>`;
+      <div class="inspector"><h2>Registro</h2><div class="log" id="log">${S.logs.slice(-60).map(logLine).join("") || "<div>Sem atividade ainda.</div>"}</div></div>
+      <div class="inspector adv-models"><h2>Aparência</h2><p class="sub">${S.device?.model != null ? "Detectada pelo modelo do mouse. Pode trocar se quiser." : "Escolha a foto que corresponde ao seu mouse."}</p><div class="models">${models}</div></div>
+    </div>`;
   },
 };
 
@@ -475,8 +474,8 @@ function closeModal(sel) {
   setTimeout(() => { if (m.classList.contains("closing")) { m.hidden = true; m.classList.remove("closing"); } }, 230);
 }
 
-// ---------------- aparência: tema e transparência ----------------
-let appearance = { theme: "dark", transparency: 0, reduceMotion: false };
+// ---------------- aparência: tema ----------------
+let appearance = { theme: "dark", reduceMotion: false };
 // onPaint: troca a moldura nativa. Sem animação, junto com as cores; com crossfade, no meio dele
 // (a barra de título do Windows não faz fade — trocar no 1º quadro deixava barra clara sobre conteúdo escuro).
 function applyAppearance(a, animate = false, onPaint = null) {
@@ -485,14 +484,10 @@ function applyAppearance(a, animate = false, onPaint = null) {
   $("#reduce-motion").checked = !!a.reduceMotion;
   const paint = () => {
     root.dataset.theme = a.theme;
-    root.style.setProperty("--opacity", String(1 - a.transparency / 100));
     $$("[data-theme-choice]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.themeChoice === a.theme)));
   };
   if (animate && a.theme !== root.dataset.theme) switchTheme(paint, onPaint);
   else { paint(); onPaint?.(); }
-  const r = $("#transparency");
-  r.value = a.transparency; r.style.setProperty("--p", pct(a.transparency, 0, 60));
-  $("#transparency-out").textContent = `${a.transparency}%`;
 }
 // Troca de tema como no macOS: o quadro inteiro faz um único crossfade. A classe theme-switch tira as
 // transições de cor e os nomes de View Transition enquanto dura (ver styles.css).
@@ -510,16 +505,11 @@ function switchTheme(paint, onMid) {
   vt.ready.then(() => setTimeout(() => onMid?.(), THEME_FADE_MS / 2 - 16), () => onMid?.());
   vt.finished.finally(done);
 }
-let saveTimer;
 function changeAppearance(patch) {
   appearance = { ...appearance, ...patch };
   const send = () => bridge.call("setAppearance", appearance).catch(() => {});
-  clearTimeout(saveTimer);
   if ("theme" in patch) applyAppearance(appearance, true, send);   // moldura troca junto com a página
-  else {
-    applyAppearance(appearance);
-    saveTimer = setTimeout(send, 120);   // slider: só quando para, para não martelar o DWM e o disco
-  }
+  else { applyAppearance(appearance); send(); }
 }
 
 async function applyFlow() {
@@ -561,7 +551,7 @@ $("#sheet-confirm").addEventListener("click", () => {
 });
 document.addEventListener("click", (e) => {
   const pick = e.target.closest("[data-open]");
-  if (pick && !pick.disabled) return run(async () => {
+  if (pick) return run(async () => {
     $("#progress").classList.add("on");
     loadState(await bridge.call("switchTo", pick.dataset.open));
   });
@@ -572,7 +562,6 @@ document.addEventListener("click", (e) => {
 });
 // aparência
 $("#theme-seg").addEventListener("click", (e) => { const b = e.target.closest("[data-theme-choice]"); if (b) changeAppearance({ theme: b.dataset.themeChoice }); });
-$("#transparency").addEventListener("input", (e) => changeAppearance({ transparency: Number(e.target.value) }));
 $("#reduce-motion").addEventListener("change", (e) => changeAppearance({ reduceMotion: e.target.checked }));
 // Iniciar com o Windows (chave Run do usuário); o C# devolve o estado real depois de gravar
 $("#startup").addEventListener("change", (e) => bridge.call("setStartup", e.target.checked)
@@ -604,8 +593,8 @@ bridge.on("log", (m) => {
   $("#startup").checked = !!S.opt?.startup;
   applyAppearance(appearance);
   if (q.get("page") && PAGES[q.get("page")]) S.page = q.get("page");
-  render();
-  // tela inicial: mostra o que está ligado; o C# avisa sozinho quando algo entra ou sai
-  try { S.avail = await bridge.call("available"); render(); }
+  // verifica o que está ligado antes de desenhar a tela inicial; depois, o C# avisa quando algo entra ou sai
+  try { S.avail = await bridge.call("available"); }
   catch (e) { toast(e.message, true); }
+  render();
 })();

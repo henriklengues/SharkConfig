@@ -145,7 +145,7 @@ public sealed class MouseDevice : IDisposable
         var current = MouseConfig.FromImage(Image);
         if (current.Warnings.Count > 0)
             throw new InvalidOperationException("A leitura do mouse tem campos inválidos (" + string.Join("; ", current.Warnings) +
-                "). Por segurança, nada foi gravado. Leia o mouse de novo.");
+                "). Por segurança, nada foi gravado. Clique em Reiniciar.");
 
         var after = cfg.ApplyTo(Image);
         var ops = MouseConfig.Diff(Image, after);
@@ -159,7 +159,7 @@ public sealed class MouseDevice : IDisposable
         {
             if (Transact(Cmd.WriteFlash, addr, bytes) is null)
                 throw new IOException($"O mouse não confirmou a escrita em 0x{addr:X4}. Os campos anteriores já foram gravados; " +
-                    "leia o mouse de novo antes de continuar. O backup está em " + backupDir);
+                    "clique em Reiniciar antes de continuar. O backup está em " + backupDir);
             Image.Load(addr, bytes);
         }
 
