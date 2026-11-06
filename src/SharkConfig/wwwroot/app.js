@@ -80,7 +80,7 @@ const PAGES = {
   performance: { title: "Desempenho", sub: () => "Taxa de atualização, sensor e energia" },
   dpi: { title: "Sensibilidade", sub: () => `Até ${S.opt?.dpi.maxStages ?? 6} estágios, de 50 a 42.000 DPI` },
   buttons: { title: "Botões", sub: () => "Clique em um botão no mouse para trocar a função" },
-  lighting: { title: "Iluminação", sub: () => "Indicador de DPI" },
+  lighting: { title: "Iluminação", sub: () => S.device?.dongleLight ? "Indicador de DPI e LED do receptor" : "Indicador de DPI" },
   advanced: { title: "Avançado", sub: () => "Memória do mouse, aparência e registro" },
 };
 
@@ -212,7 +212,7 @@ function bindControls(root) {
   $$("[data-seg]", root).forEach((g) => g.addEventListener("click", (e) => {
     const b = e.target.closest("button"); if (!b) return;
     $$("button", g).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-    set((c) => { c[g.dataset.seg] = Number(b.dataset.v); }, g.dataset.seg === "pollingCode");
+    set((c) => { c[g.dataset.seg] = Number(b.dataset.v); }, g.dataset.seg === "pollingCode" || g.dataset.seg === "dongleStatus");
   }));
   $$("[data-toggle]", root).forEach((i) => i.addEventListener("change", () => set((c) => { c[i.dataset.toggle] = i.checked; })));
   $$("[data-select]", root).forEach((s) => s.addEventListener("change", () => set((c) => { c[s.dataset.select] = Number(s.value); })));
@@ -225,6 +225,15 @@ function bindControls(root) {
   }));
 }
 const OUT = { debounce: (v) => `${v} ms`, ledBrightness: (v) => `${v} de 10`, ledSpeed: (v) => `${v} de 5` };
+
+// LED de status do receptor 8K: só aparece pelo receptor, quando ele responde ao registro de luz
+function dongleGroup() {
+  if (!S.device?.dongleLight || !S.cfg.dongleStatus) return "";
+  const modes = S.opt.dongleStatusModes ?? [];
+  const cur = modes.find((m) => m.mode === S.cfg.dongleStatus);
+  return `<div class="group"><h3>LED do receptor</h3>${seg("dongleStatus", modes.map((m) => ({ v: m.mode, label: m.label })), S.cfg.dongleStatus)}
+    <p class="note">${esc(cur?.info ?? "")}</p></div>`;
+}
 
 // ---------------- páginas ----------------
 const VIEWS = {
@@ -322,7 +331,7 @@ const VIEWS = {
         <div class="group"><h3>Ajustes</h3><div class="rows">
           <div class="row stack"><div class="label">Brilho</div>${slider("ledBrightness", c.ledBrightness, 1, S.opt.limits.brightnessLevels, OUT.ledBrightness(c.ledBrightness))}</div>
           <div class="row stack"><div class="label">Velocidade da respiração</div>${slider("ledSpeed", c.ledSpeed, S.opt.limits.ledSpeed.min, S.opt.limits.ledSpeed.max, OUT.ledSpeed(c.ledSpeed))}</div>
-        </div></div></div></div>`;
+        </div></div>${dongleGroup()}</div></div>`;
   },
 
   advanced() {

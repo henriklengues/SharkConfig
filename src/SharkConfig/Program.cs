@@ -31,6 +31,20 @@ static class Program
             if (dev is null) return 1;
             if (args.Contains("--verbose")) dev.Log += Console.WriteLine;
             Console.WriteLine($"online={dev.ReadOnline()} versão={dev.ReadVersion()} bateria={dev.ReadBattery()} modelo={dev.ReadModelId()}");
+            // luzes do receptor (só leitura)
+            foreach (var c in new[] { Protocol.Cmd.GetDongleRgbBar, Protocol.Cmd.GetDongleIndicator, Protocol.Cmd.GetDongleRgb4K })
+                Console.WriteLine($"{c,-20} {(dev.Transact(c) is { } r ? Protocol.Packet.Hex(r) : "sem resposta")}");
+            if (args.Contains("--dongle-only")) return 0;
+            if (args.Contains("--dongle-test"))
+            {
+                // teste reversível do LED de status do receptor: troca o modo, confere e restaura
+                var orig = dev.ReadDongleLight();
+                if (orig is null) { Console.WriteLine("receptor sem registro de luz (0x15)"); return 1; }
+                byte other = orig[0] == 1 ? (byte)2 : (byte)1;
+                try { dev.WriteDongleStatus(other); Console.WriteLine($"gravado modo {other}: {Protocol.Packet.Hex(dev.ReadDongleLight()!)}"); }
+                finally { dev.WriteDongleStatus(orig[0]); Console.WriteLine($"restaurado modo {orig[0]}: {Protocol.Packet.Hex(dev.ReadDongleLight()!)}"); }
+                return 0;
+            }
             try
             {
                 var img = dev.ReadFlash();

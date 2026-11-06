@@ -121,6 +121,26 @@ disso, a leitura acusava "DPI inválido" em todos os estágios e o app recusava 
 gravação também regravava os 8 registros de `0x1B00` sempre que algum deles fosse inválido; agora o DPI só é
 gravado quando o valor muda.
 
+## Luzes do receptor [O][H]
+
+Analisado no "ATTACK SHARK MOUSE HUB" de 14/08/2026 (`download.attackshark.pro/ATTACKSHARK/X8Ultra/`),
+`hidusb.dll`. Os comandos vão para o próprio receptor e respondem com o mouse dormindo.
+
+| Gravar | Ler | Função na DLL | Dados |
+|---|---|---|---|
+| `0x14` | `0x15` | `Set4KDongleRGB` / `Get4KDongleRGBValue` | 10 bytes em `[6..15]`, `len = 0x0A` |
+| `0x18` | `0x19` | `SetDongleRGBBarMode` / `GetDongleRGBBarMode` | `[6]` = modo (0 se desligado), `[7..11]` = 5 parâmetros |
+| `0x2C` | `0x2D` | `SetDongleIndicatorLed` / `GetDongleIndicatorLed` | 3 bytes em `[6..8]` |
+
+- A gravação `0x14` é confirmada pelo eco: `resp[2] = 0` e `resp[6..15]` iguais ao enviado.
+- O app oficial só troca o **byte 0** do registro `0x14` (o modo do LED de status) e regrava o resto como leu:
+  `1` = taxa de atualização (vermelho 125 Hz, azul 250, amarelo 500, laranja 1000, roxo 2000, verde 4000,
+  ciano 8000), `2` = nível de bateria (verde ≥ 75%, laranja < 75%, vermelho ≤ 15%), `3` = só aviso de
+  bateria (pisca em vermelho com a bateria fraca). Os outros 9 bytes não são interpretados.
+- No receptor 8K do X8 Ultra (PID `FB44`) [H]: `0x15` → `02 00 FF 00 FF FF 00 FF 00 00` (bateria);
+  gravado 1 e de volta 2, com eco e releitura idênticos. `0x19` e `0x2D` respondem `resp[2] = 01` sem
+  dados (com o mouse dormindo), então a luz decorativa (`0x18`) e o outro LED (`0x2C`) não estão no SharkConfig.
+
 ### Mouse dormindo
 
 Pelo receptor, o comando `0x03` responde `resp[6] = 01` com o mouse ligado e `00` com ele dormindo ou

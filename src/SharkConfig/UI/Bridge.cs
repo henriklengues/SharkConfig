@@ -30,6 +30,8 @@ public sealed class ConfigDto
     public int LedSpeed { get; set; }
     /// <summary>Id de <see cref="ButtonOption"/> ou "custom:tt-pp-pp" se não mapeado.</summary>
     public string[] Buttons { get; set; } = [];
+    /// <summary>Modo do LED de status do receptor (1–3) ou 0 quando não há receptor com esse LED.</summary>
+    public int DongleStatus { get; set; }
 
     public static ConfigDto From(MouseConfig c) => new()
     {
@@ -92,6 +94,7 @@ public sealed partial class Bridge
     BatteryInfo? _battery;
     ushort? _version;
     (byte Cid, byte Mid)? _model;
+    byte[]? _dongleLight;   // registro 0x15 do receptor (null pelo cabo ou se o receptor não tiver)
 
     // MIDs do Config.ini do app oficial na ordem Drive1..18 → foto img/mouse{i}.png.
     // O app oficial lê os MIDs como DECIMAL (QString::toInt base 10). Drive1–8 (índice 0–7) usam o
@@ -326,6 +329,7 @@ public sealed partial class Bridge
         sensorModes = new[] { "LP", "HP", "Corded" },
         ledEffects = MouseConfig.DpiLedEffects,
         buttons = ButtonOption.All.Select(b => new { b.Id, b.Group, b.Label }),
+        dongleStatusModes = MouseDevice.DongleStatusModes.Select(m => new { mode = m.Mode, label = m.Label, info = m.Info }),
         dpi = new { min = MouseConfig.DpiMin, max = MouseConfig.DpiMax, seg1 = MouseConfig.DpiSeg1Max, maxStages = Flash.MaxUserStages },
         limits = new
         {
@@ -363,6 +367,7 @@ public sealed partial class Bridge
         _version = dev.ReadVersion();
         _battery = dev.ReadBattery();
         _model ??= dev.ReadModelId();
+        _dongleLight = dev.Description.Contains("dongle") ? dev.ReadDongleLight() : null;
         int last = -1;
         var img = dev.ReadFlash(new SyncProgress(v => { if (v != last) { last = v; _post(JsonSerializer.Serialize(new { @event = "progress", value = v }, Json)); } }));
         var cfg = MouseConfig.FromImage(img);
@@ -379,8 +384,9 @@ public sealed partial class Bridge
             firmware = _version is ushort v ? $"{v >> 8}.{v & 0xFF:D2}" : null,
             model = _model is { } md ? ModelIndex(md.Mid) : null,
             dpiSupported = DpiSupported,
+            dongleLight = _dongleLight is not null,
         },
-        config = ConfigDto.From(cfg),
+        config = WithDongle(ConfigDto.From(cfg)),
         warnings = cfg.Warnings,
         hex = HexDump(img),
     };
@@ -397,18 +403,33 @@ public sealed partial class Bridge
         return cfg;
     }
 
+    ConfigDto WithDongle(ConfigDto d) { d.DongleStatus = _dongleLight?[0] ?? 0; return d; }
+
+    /// <summary>Novo modo do LED do receptor, se mudou (só entre os modos que o app oficial oferece).</summary>
+    byte? DongleChange(ConfigDto dto) =>
+        _dongleLight is { } cur && dto.DongleStatus != cur[0] && MouseDevice.DongleStatusModes.Any(m => m.Mode == dto.DongleStatus)
+            ? (byte)dto.DongleStatus : null;
+
     object Preview(ConfigDto dto)
     {
         var img = _dev!.Image!;
         var cfg = Edited(dto);
-        return MouseConfig.Diff(img, cfg.ApplyTo(img)).Select(o => new { address = $"0x{o.Address:X4}", bytes = Packet.Hex(o.Bytes) });
+        var ops = MouseConfig.Diff(img, cfg.ApplyTo(img)).Select(o => new { address = $"0x{o.Address:X4}", bytes = Packet.Hex(o.Bytes) }).ToList();
+        if (DongleChange(dto) is byte mode)
+        {
+            var data = (byte[])_dongleLight!.Clone(); data[0] = mode;
+            ops.Add(new { address = "receptor", bytes = Packet.Hex(Packet.Build(Cmd.SetDongleRgb4K, 0, data, 0x0A)) });
+        }
+        return ops;
     }
 
     object Apply(ConfigDto dto)
     {
         var dev = _dev ?? throw new InvalidOperationException("Nenhum mouse conectado.");
         var cfg = Edited(dto);
-        int n = dev.Apply(cfg, _backupDir);
+        int n = 0;
+        if (DongleChange(dto) is byte mode) { dev.WriteDongleStatus(mode); n++; }
+        n += dev.Apply(cfg, _backupDir);
         Log($"{n} escrita(s) confirmadas. Backup em {_backupDir}");
         var state = Read();
         return new { count = n, state };

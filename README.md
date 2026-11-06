@@ -15,7 +15,7 @@ reconstruídos por engenharia reversa (interoperabilidade) dos softwares oficiai
 | Desempenho | taxa de atualização 125–8000 Hz, modo do sensor (LP/HP/Corded), distância de levantamento, Motion Sync, correção de linha reta, controle de ondulação, desempenho máximo, tempo para dormir, debounce |
 | Sensibilidade | 1 a 8 estágios de 50 a 42.000 DPI, cor de cada estágio, estágio ativo |
 | Botões | cliques, voltar/avançar, DPI (ciclo, +, −, travar), rolagem |
-| Iluminação | efeito, brilho e velocidade do indicador de DPI |
+| Iluminação | efeito, brilho e velocidade do indicador de DPI; LED de status do receptor 8K (taxa de atualização, bateria ou só aviso de bateria) |
 | Avançado | leitura da memória do mouse, backup e restauração |
 
 ### Teclado X68 HE (pelo cabo)
@@ -64,7 +64,8 @@ dotnet build -c Release
 |---|---|
 | `--page dpi` | abre numa página: `overview`, `performance`, `dpi`, `buttons`, `lighting`, `advanced` |
 | `--list` | lista as coleções HID do PC |
-| `--mouse-probe` | só leitura: abre o X8, lê a memória e lista os avisos (`--verbose` mostra os pacotes) |
+| `--mouse-probe` | só leitura: abre o X8, lê as luzes do receptor e a memória e lista os avisos (`--verbose` mostra os pacotes) |
+| `--mouse-probe --dongle-test` | troca o modo do LED do receptor, confere e restaura o original |
 | `--tray` | abre só na bandeja (é o que Iniciar com o Windows usa) |
 | `--render-tray-icon 85 icone.png` | salva o ícone da bandeja de uma porcentagem, para conferir o desenho |
 | `--kb-probe` | só leitura: identifica o teclado e despeja as tabelas (`--verbose` mostra os pacotes) |
@@ -91,8 +92,9 @@ uma instalação do app oficial:
 
 ## Segurança
 
-- Só seis comandos podem ser enviados (cinco leituras e a gravação de configuração); atualização de
-  firmware, troca de VID/PID, pareamento e reset de fábrica são bloqueados no código (`Packet.AllowedCommands`).
+- Só leituras, a gravação de configuração e a gravação do LED do receptor (`0x14`, só o modo, com eco e
+  releitura) podem ser enviadas; atualização de firmware, troca de VID/PID, pareamento, ID do receptor e
+  reset de fábrica são bloqueados no código (`Packet.AllowedCommands`).
 - Grava do mesmo jeito do app oficial: um pacote por campo alterado, só valores das mesmas listas e
   faixas, com intervalo entre pacotes.
 - Antes de gravar: recusa se a leitura do mouse veio com algum campo inválido, confere cada pacote

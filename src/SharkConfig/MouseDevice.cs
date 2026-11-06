@@ -78,6 +78,43 @@ public sealed class MouseDevice : IDisposable
 
     public bool? ReadOnline() => Transact(Cmd.Online) is { } r ? r[6] != 0 : null;
 
+    // ---------------- LED do receptor ----------------
+    /// <summary>Modos do LED de status do receptor (byte 0 do registro 0x14/0x15), como no app oficial.</summary>
+    public static readonly (byte Mode, string Label, string Info)[] DongleStatusModes =
+    [
+        (1, "Taxa de atualização", "Vermelho 125 Hz, azul 250 Hz, amarelo 500 Hz, laranja 1000 Hz, roxo 2000 Hz, verde 4000 Hz, ciano 8000 Hz."),
+        (2, "Nível de bateria", "Verde com 75% ou mais, laranja abaixo de 75%, vermelho com 15% ou menos."),
+        (3, "Só aviso de bateria", "Pisca em vermelho só quando a bateria do mouse está fraca."),
+    ];
+
+    /// <summary>
+    /// Registro de 10 bytes da luz do receptor (comando 0x15, resposta [2]=0, [5]=10, dados em [6..15]).
+    /// Só existe pelo receptor; null se ele não responder assim. O receptor responde mesmo com o mouse dormindo.
+    /// </summary>
+    public byte[]? ReadDongleLight() =>
+        Transact(Cmd.GetDongleRgb4K) is { } r && r[2] == 0 && r[5] == 0x0A ? r[6..16] : null;
+
+    /// <summary>
+    /// Troca só o modo do LED de status (byte 0) e regrava os outros 9 bytes como foram lidos, igual ao
+    /// app oficial (UsbFinder_Set4KDongleRGB): 0x14 com len 10. Confere o eco ([2]=0 e [6..15] iguais
+    /// ao enviado) e relê com 0x15.
+    /// </summary>
+    public void WriteDongleStatus(byte mode)
+    {
+        if (!DongleStatusModes.Any(m => m.Mode == mode)) throw new ArgumentException($"Modo {mode} do LED do receptor não é aceito.");
+        var cur = ReadDongleLight() ?? throw new IOException("O receptor não informou a luz atual (0x15); nada foi gravado.");
+        if (cur[0] == mode) return;
+        var data = (byte[])cur.Clone();
+        data[0] = mode;
+        var r = Transact(Cmd.SetDongleRgb4K, 0, data, 0x0A) ?? throw new IOException("O receptor não respondeu à gravação do LED (0x14).");
+        if (r[2] != 0 || !r.AsSpan(6, 10).SequenceEqual(data))
+            throw new IOException("O receptor não confirmou o LED: " + Packet.Hex(r));
+        var after = ReadDongleLight();
+        if (after is null || !after.AsSpan().SequenceEqual(data))
+            throw new IOException("Conferência do LED do receptor falhou: lido " + (after is null ? "nada" : Packet.Hex(after)));
+        Log?.Invoke($"✓ LED do receptor: modo {mode}");
+    }
+
     public FlashImage ReadFlash(IProgress<int>? progress = null)
     {
         var img = new FlashImage();

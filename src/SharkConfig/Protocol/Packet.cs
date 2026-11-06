@@ -13,6 +13,13 @@ public enum Cmd : byte
     ReadFlash = 0x08,
     Version = 0x12,
     ReadCidMid = 0xF1,   // só leitura: identifica o modelo (CID/MID) — @0x18000eaf0
+    // Luzes do receptor (HIDUsb.dll v. MOUSE HUB 2026): leituras e gravações próprias do receptor
+    SetDongleRgb4K = 0x14,      // cor do receptor 4K (10 bytes)      — UsbFinder_Set4KDongleRGB @0x18000e7d0
+    GetDongleRgb4K = 0x15,      //                                     — UsbFinder_Get4KDongleRGBValue @0x18000e980
+    SetDongleRgbBar = 0x18,     // luz decorativa do receptor (6 bytes) — UsbFinder_SetDongleRGBBarMode @0x18000f880
+    GetDongleRgbBar = 0x19,     //                                     — UsbFinder_GetDongleRGBBarMode @0x18000fa20
+    SetDongleIndicator = 0x2C,  // LED de status do receptor (3 bytes) — UsbFinder_SetDongleIndicatorLed @0x180010220
+    GetDongleIndicator = 0x2D,  //                                     — UsbFinder_GetDongleIndicatorLed @0x180010400
     // Perigosos — nunca enviados pelo app (documentados aqui só para referência):
     // ClearSetting=0x09, SetVidPid=0x0B, SetDescriptor=0x0C, EnterDfu=0x0D,
     // EnterMtk=0x11, WriteCidMid=0xF0, Pair=0x05, SetDongleId=0x1A, SetSerial=0x1F
@@ -29,7 +36,9 @@ public static class Packet
     public const int MaxData = 10;
 
     public static readonly HashSet<Cmd> AllowedCommands =
-        [Cmd.Online, Cmd.Battery, Cmd.WriteFlash, Cmd.ReadFlash, Cmd.Version, Cmd.ReadCidMid];
+        [Cmd.Online, Cmd.Battery, Cmd.WriteFlash, Cmd.ReadFlash, Cmd.Version, Cmd.ReadCidMid,
+         Cmd.GetDongleRgbBar, Cmd.GetDongleIndicator, Cmd.GetDongleRgb4K,
+         Cmd.SetDongleRgb4K];   // só o byte 0 (modo do LED de status) é alterado — ver MouseDevice.WriteDongleStatus
 
     public static byte Checksum(ReadOnlySpan<byte> data)
     {
