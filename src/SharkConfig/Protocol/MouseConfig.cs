@@ -98,8 +98,29 @@ public sealed class MouseConfig
     public static int DecodeLegacyDpi(byte lo, byte flag) =>
         ((lo | ((flag >> 2) & 0x03) << 8) + 1) * 50 * ((flag & 0x01) != 0 ? 2 : 1);
 
+    /// <summary>
+    /// Inverso de DecodeLegacyDpi, igual ao app oficial para 3950/3395: raw = dpi/(50·div) − 1;
+    /// flag = 0x11 se div 2, mais os bits altos repetidos (h·0x44). Ex.: 1200 → 17 17 00, 42000 → A3 A3 55.
+    /// </summary>
+    public static (byte Lo, byte Flag) EncodeLegacyDpi(int dpi)
+    {
+        dpi = Math.Clamp(dpi, DpiMin, DpiMax);
+        int div = dpi > DpiSeg1Max ? 2 : 1;
+        int raw = dpi / (50 * div) - 1;
+        byte flag = div == 2 ? DpiSeg2Flag : (byte)0;
+        int h = raw >> 8;
+        flag |= (byte)((((h << 4) | h) << 2) & 0xFF);
+        return ((byte)raw, flag);
+    }
+
     /// <summary>true quando o DPI veio do registro legado (a tabela 0x1B00 está apagada).</summary>
     public bool DpiFromLegacy;
+
+    /// <summary>
+    /// true quando todo registro de DPI lido é reproduzido byte a byte pelo codificador do PAW3950
+    /// (X = Y, flag igual): prova que o firmware usa essa codificação mesmo sem o modelo identificado.
+    /// </summary>
+    public bool DpiEncodingVerified = true;
 
     public static int SnapDpi(int dpi)
     {
@@ -137,13 +158,25 @@ public sealed class MouseConfig
         for (int i = 0; i < Flash.MaxStages; i++)
         {
             var d = img.GetRecord(Flash.Dpi(i), 5);
-            if (d is not null) c.Dpi[i] = DecodeDpi((ushort)(d[0] | d[1] << 8), d[4]);
+            if (d is not null)
+            {
+                c.Dpi[i] = DecodeDpi((ushort)(d[0] | d[1] << 8), d[4]);
+                var (raw, flag) = EncodeDpi(c.Dpi[i]);
+                if (d[0] != (byte)raw || d[1] != (byte)(raw >> 8) || d[2] != d[0] || d[3] != d[1] || d[4] != flag)
+                    c.DpiEncodingVerified = false;
+            }
             else if (IsErased(img, Flash.Dpi(i), 6) && img.GetRecord(Flash.DpiLegacy(i), 3) is { } l)
             {
                 c.Dpi[i] = DecodeLegacyDpi(l[0], l[2]);
                 c.DpiFromLegacy = true;
+                var (lo, flag) = EncodeLegacyDpi(c.Dpi[i]);
+                if (l[0] != lo || l[1] != lo || l[2] != flag) c.DpiEncodingVerified = false;
             }
-            else if (i < c.StageCount) c.Warnings.Add($"DPI {i + 1} inválido");
+            else
+            {
+                c.DpiEncodingVerified = false;
+                if (i < c.StageCount) c.Warnings.Add($"DPI {i + 1} inválido");
+            }
             var col = img.GetRecord(Flash.DpiColor(i), 3);
             if (col is not null) c.DpiColors[i] = Color.FromArgb(col[0], col[1], col[2]);
         }
@@ -188,9 +221,16 @@ public sealed class MouseConfig
             if (old.Dpi[i] != Dpi[i])
             {
                 if (old.DpiFromLegacy)
-                    throw new InvalidOperationException("Este mouse guarda o DPI no formato antigo (0x0C); por segurança o DPI fica só para leitura.");
-                var (raw, flag) = EncodeDpi(Dpi[i]);
-                img.SetRecord(Flash.Dpi(i), [(byte)raw, (byte)(raw >> 8), (byte)raw, (byte)(raw >> 8), flag]);
+                {
+                    // firmware com a tabela 0x1B00 apagada: o DPI vive só no registro legado 0x0C+4i
+                    var (lo, lflag) = EncodeLegacyDpi(Dpi[i]);
+                    img.SetRecord(Flash.DpiLegacy(i), [lo, lo, lflag]);
+                }
+                else
+                {
+                    var (raw, flag) = EncodeDpi(Dpi[i]);
+                    img.SetRecord(Flash.Dpi(i), [(byte)raw, (byte)(raw >> 8), (byte)raw, (byte)(raw >> 8), flag]);
+                }
             }
             var c = DpiColors[i];
             img.SetRecord(Flash.DpiColor(i), [c.R, c.G, c.B]);

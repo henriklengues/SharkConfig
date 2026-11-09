@@ -50,6 +50,7 @@ static class Program
                 var img = dev.ReadFlash();
                 var cfg = Protocol.MouseConfig.FromImage(img);
                 Console.WriteLine($"memória lida; avisos: {cfg.Warnings.Count}");
+                Console.WriteLine($"DPI: {string.Join('/', cfg.Dpi.Take(cfg.StageCount))} legado={cfg.DpiFromLegacy} codificação 3950 conferida={cfg.DpiEncodingVerified}");
                 foreach (var w in cfg.Warnings) Console.WriteLine("  " + w);
             }
             catch (Exception ex) { Console.WriteLine("ERRO: " + ex.Message); return 1; }

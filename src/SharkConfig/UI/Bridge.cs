@@ -106,7 +106,14 @@ public sealed partial class Bridge
         return i >= 0 ? i : null;
     }
     public static bool IsPaw3950Model(int? index) => index is >= 0 and <= 7;
-    bool DpiSupported => IsPaw3950Model(_model is { } m ? ModelIndex(m.Mid) : null);
+    // Pelo receptor 8K o 0xF1 responde com erro ([2]=01, MID 0) e o modelo fica desconhecido. Nesse caso
+    // o DPI é liberado só se os registros lidos batem byte a byte com a codificação do PAW3950.
+    // Modelo identificado como 3955 continua bloqueado.
+    bool DpiSupported(MouseConfig read)
+    {
+        int? idx = _model is { } m ? ModelIndex(m.Mid) : null;
+        return IsPaw3950Model(idx) || (idx is null && read.DpiEncodingVerified);
+    }
 
     readonly AppSettings _settings;
     readonly Action<AppSettings> _applyAppearance;
@@ -385,7 +392,7 @@ public sealed partial class Bridge
             battery = _battery is null ? null : new { percent = _battery.Percent, millivolts = _battery.Millivolts },
             firmware = _version is ushort v ? $"{v >> 8}.{v & 0xFF:D2}" : null,
             model = _model is { } md ? ModelIndex(md.Mid) : null,
-            dpiSupported = DpiSupported,
+            dpiSupported = DpiSupported(cfg),
             dongleLight = _dongleLight is not null,
         },
         config = WithDongle(ConfigDto.From(cfg)),
@@ -399,7 +406,7 @@ public sealed partial class Bridge
         var img = _dev?.Image ?? throw new InvalidOperationException("Leia o mouse antes de aplicar.");
         var before = MouseConfig.FromImage(img);
         var cfg = MouseConfig.FromImage(img); dto.ApplyTo(cfg);
-        if (!DpiSupported && !before.Dpi.SequenceEqual(cfg.Dpi))
+        if (!DpiSupported(before) && !before.Dpi.SequenceEqual(cfg.Dpi))
             throw new InvalidOperationException(
                 "O modelo deste mouse não foi identificado como PAW3950; por segurança o DPI não é gravado.");
         return cfg;
