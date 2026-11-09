@@ -253,7 +253,12 @@ public sealed class MouseConfig
                      Flash.SleepTime, Flash.AngleSnap, Flash.Ripple, Flash.Performance, Flash.PerformanceTimeout,
                      Flash.SensorMode })
             fields.Add((a, 2));
-        for (int i = 0; i < Flash.MaxStages; i++) { fields.Add((Flash.DpiColor(i), 4)); fields.Add((Flash.Dpi(i), 6)); }
+        for (int i = 0; i < Flash.MaxStages; i++)
+        {
+            fields.Add((Flash.DpiLegacy(i), 4));   // DPI em firmwares com a tabela 0x1B00 apagada
+            fields.Add((Flash.DpiColor(i), 4));
+            fields.Add((Flash.Dpi(i), 6));
+        }
         for (int i = 0; i < 6; i++) fields.Add((Flash.Button(i), 4));
 
         var ops = new List<(int, byte[])>();
